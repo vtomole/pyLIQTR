@@ -32,7 +32,8 @@ import qualtran as qt
 from qualtran import _infra
 import qualtran.bloqs.chemistry.hubbard_model.qubitization as qt_hm
 from qualtran.bloqs.multiplexers.select_pauli_lcu import SelectPauliLCU
-from qualtran.bloqs.mcmt.multi_control_pauli import MultiTargetCNOT, MultiControlPauli
+from qualtran.bloqs.mcmt.multi_target_cnot import MultiTargetCNOT
+from qualtran.bloqs.mcmt.multi_control_pauli import MultiControlPauli
 from qualtran.bloqs.qubitization_walk_operator_test import get_walk_operator_for_1d_ising_model
 from qualtran._infra.data_types import BQUInt
 import pytest

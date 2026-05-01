@@ -11,7 +11,7 @@ from attrs import frozen
 
 from qualtran import GateWithRegisters, QAny, Register, Signature, QBit
 from qualtran.bloqs.basic_gates import Toffoli, CNOT, CZPowGate
-from qualtran.bloqs.mcmt import MultiTargetCNOT
+from qualtran.bloqs.mcmt.multi_target_cnot import MultiTargetCNOT
 from qualtran.drawing import Text, WireSymbol
 
 from pyLIQTR.circuits.operators.ControlledCopy import ControlledCopy
