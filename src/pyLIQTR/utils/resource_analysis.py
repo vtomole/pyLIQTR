@@ -21,7 +21,7 @@ from pyLIQTR.gate_decomp.rotation_gates import T_COUNT_CONST, T_COUNT_SLOPE, T_C
 from qualtran.cirq_interop.t_complexity_protocol import TComplexity, _get_hash,_t_complexity_from_strategies, \
          _t_complexity_for_gate_or_op,\
         _from_explicit_annotation,\
-        _from_directly_countable,\
+        _from_directly_countable_cirq,\
         _from_cirq_decomposition,\
         _from_iterable
 from typing import Any, Hashable
@@ -61,7 +61,7 @@ def _pylqt_t_complexity_for_gate_or_op(
     strategies = [
             from_measurement,
             _from_explicit_annotation,
-            _from_directly_countable,
+            _from_directly_countable_cirq,
             _plyqt_from_bloq_build_call_graph,
             _from_cirq_decomposition,
             _from_iterable,
@@ -97,7 +97,7 @@ def pylqt_t_complexity(stc: Any) -> TComplexity:
         strategies = [
             from_measurement,
             _from_explicit_annotation,
-            _from_directly_countable,
+            _from_directly_countable_cirq,
             _plyqt_from_bloq_build_call_graph,
             _from_cirq_decomposition,
             _from_iterable,
