@@ -5,7 +5,7 @@ SPDX-License-Identifier: BSD-2-Clause
 
 import   qualtran   as       qt
 #from    pyLIQTR.circuits.operators.prepare     import   Prepare
-from qualtran import BoundedQUInt
+from qualtran import BQUInt
 
 
 from    pyLIQTR.circuits.operators.prepare_oracle_pauli_lcu     import  QSP_Prepare  as   Prepare
@@ -25,7 +25,7 @@ class prepare_pauli_lcu(qt._infra.gate_with_registers.GateWithRegisters):
 
     @property
     def signature(self):
-        sig  = qt._infra.registers.Signature.build_from_dtypes(selection=BoundedQUInt(self._selection_bitsize,len(self._alphas)))
+        sig  = qt._infra.registers.Signature.build_from_dtypes(selection=BQUInt(self._selection_bitsize,len(self._alphas)))
         return(sig)
 
 

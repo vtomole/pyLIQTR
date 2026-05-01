@@ -10,7 +10,7 @@ import qualtran as qt
 from functools import cached_property
 from typing import List, Tuple, Sequence
 from numpy.typing import NDArray
-from qualtran import GateWithRegisters, Register, Signature, BoundedQUInt, QBit, QAny, QInt
+from qualtran import GateWithRegisters, Register, Signature, BQUInt, QBit, QAny, QInt
 from qualtran.linalg.lcu_util import preprocess_lcu_coefficients_for_reversible_sampling
 from qualtran.bloqs.data_loading.qrom import QROM
 from qualtran.bloqs.mcmt import MultiControlPauli
@@ -65,12 +65,12 @@ class FermionicPrepare_LinearT(GateWithRegisters):
     @cached_property
     def selection_registers(self) -> Tuple[Register]:
         theta_reg = Register(name="theta",dtype=QBit())
-        U_reg = Register(name="U",dtype=BoundedQUInt(1,2))
-        V_reg = Register(name="V",dtype=BoundedQUInt(1,2))
-        p_reg = Register(name='p',dtype=BoundedQUInt(bitsize=self.__Np_bits,iteration_length=int(self.__N/2)))
-        a_reg = Register(name="a",dtype=BoundedQUInt(1,2))
-        q_reg = Register(name='q',dtype=BoundedQUInt(bitsize=self.__Np_bits,iteration_length=int(self.__N/2)))
-        b_reg = Register(name="b",dtype=BoundedQUInt(1,2))
+        U_reg = Register(name="U",dtype=BQUInt(1,2))
+        V_reg = Register(name="V",dtype=BQUInt(1,2))
+        p_reg = Register(name='p',dtype=BQUInt(bitsize=self.__Np_bits,iteration_length=int(self.__N/2)))
+        a_reg = Register(name="a",dtype=BQUInt(1,2))
+        q_reg = Register(name='q',dtype=BQUInt(bitsize=self.__Np_bits,iteration_length=int(self.__N/2)))
+        b_reg = Register(name="b",dtype=BQUInt(1,2))
         return (theta_reg,U_reg,V_reg,p_reg,a_reg,q_reg,b_reg)
 
     @cached_property
@@ -245,8 +245,8 @@ class Subprepare_LinearT(GateWithRegisters):
 
     @cached_property
     def selection_registers(self) -> Tuple[Register]:
-        U_reg = Register(name="U",dtype=BoundedQUInt(1,2))
-        V_reg = Register(name="V",dtype=BoundedQUInt(1,2))
+        U_reg = Register(name="U",dtype=BQUInt(1,2))
+        V_reg = Register(name="V",dtype=BQUInt(1,2))
         d_reg = Register("d",dtype=QAny(int(sum(self.logM_vals))))
         return (
             U_reg,
