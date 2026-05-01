@@ -12,7 +12,7 @@ from attrs import frozen
 from qualtran import (
     QUInt,
     QBit,
-    BoundedQUInt,
+    BQUInt,
     Register,
     Side,
     Signature,
@@ -111,7 +111,7 @@ class MultiplexedControlledCopy(UnaryIterationGate):
     @cached_property
     def selection_registers(self) -> Tuple[Register, ...]:
         return (Register(
-                'selection', dtype=BoundedQUInt(bitsize=self.selection_bitsize,iteration_length=self.iteration_length) # w 
+                'selection', dtype=BQUInt(bitsize=self.selection_bitsize,iteration_length=self.iteration_length) # w 
             ),)
 
     @cached_property

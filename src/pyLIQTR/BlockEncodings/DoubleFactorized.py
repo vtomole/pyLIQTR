@@ -23,7 +23,7 @@ from qualtran.cirq_interop.bit_tools import iter_bits_fixed_point
 from qualtran.bloqs.mcmt.multi_control_multi_target_pauli import MultiControlPauli
 from qualtran.bloqs.rotations.phase_gradient import PhaseGradientState
 from qualtran.bloqs.data_loading import QROM
-from qualtran._infra.data_types import BoundedQUInt, QUInt, QBit
+from qualtran._infra.data_types import BQUInt, QUInt, QBit
 from qualtran import Register, Signature, Side
 
 class DoubleFactorized(BlockEncoding):
@@ -112,8 +112,8 @@ class DoubleFactorized(BlockEncoding):
 
     @cached_property
     def selection_registers(self) -> Tuple[Register]:
-        l_reg = Register(name='l', dtype=BoundedQUInt(bitsize=self.nL,iteration_length=self.L + 1))
-        p_reg = Register(name='p',dtype=BoundedQUInt(bitsize=self.nXi))
+        l_reg = Register(name='l', dtype=BQUInt(bitsize=self.nL,iteration_length=self.L + 1))
+        p_reg = Register(name='p',dtype=BQUInt(bitsize=self.nXi))
         return (l_reg, p_reg)
 
     @cached_property
@@ -136,7 +136,7 @@ class DoubleFactorized(BlockEncoding):
     @cached_property
     def inner_prep_extra_registers(self)-> Tuple[Register]:
         return Signature(
-            [ Register('contiguous_index', BoundedQUInt(self.nLXi+1),side=Side.RIGHT),
+            [ Register('contiguous_index', BQUInt(self.nLXi+1),side=Side.RIGHT),
             Register('rot_ancilla', QBit()), # target for aa rotation
             Register('unary_ancilla', QUInt(self.nXi)),
             Register('alt', QUInt(self.nXi)),

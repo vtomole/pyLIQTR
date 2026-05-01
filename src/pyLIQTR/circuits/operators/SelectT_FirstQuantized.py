@@ -7,7 +7,7 @@ from functools import cached_property
 from typing import Set, Optional, Union, Sequence, Callable, Dict, Tuple
 from numpy.typing import NDArray
 
-from qualtran import GateWithRegisters, Signature, Register, QBit, QAny, BoundedQUInt
+from qualtran import GateWithRegisters, Signature, Register, QBit, QAny, BQUInt
 from qualtran.bloqs.basic_gates import Toffoli, ZGate, Hadamard, CZPowGate
 from qualtran.bloqs.bookkeeping import ArbitraryClifford
 from qualtran.cirq_interop import CirqGateAsBloq
@@ -45,7 +45,7 @@ class SelectT_FirstQuantized(GateWithRegisters):
             [
                 Register("flag_T", QBit()),
                 Register("plus", QBit()),
-                Register("w", BoundedQUInt(bitsize=2,iteration_length=3)),
+                Register("w", BQUInt(bitsize=2,iteration_length=3)),
                 Register("r", QAny(bitsize=self.num_bits_p)),
                 Register("s", QAny(bitsize=self.num_bits_p)),
                 Register("sys", QAny(bitsize=self.num_bits_p), shape=(3,)),

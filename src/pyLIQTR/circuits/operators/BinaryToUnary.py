@@ -15,7 +15,7 @@ from qualtran._infra.gate_with_registers import GateWithRegisters, total_bits
 from qualtran.cirq_interop.t_complexity_protocol import TComplexity
 from qualtran.bloqs.multiplexers.unary_iteration_bloq import UnaryIterationGate
 from qualtran.bloqs.mcmt.and_bloq import And
-from qualtran._infra.data_types import QAny, BoundedQUInt
+from qualtran._infra.data_types import QAny, BQUInt
 from qualtran.bloqs.basic_gates import CNOT, XGate
 
 @attr.frozen
@@ -55,7 +55,7 @@ class BinaryToUnary(UnaryIterationGate):
         controlled = True if quregs.get('control', 0) else False
         return BinaryToUnary(
             selection_regs=Register(
-                'selection', dtype=BoundedQUInt(bitsize=len(quregs['selection']),iteration_length=len(quregs['target']))
+                'selection', dtype=BQUInt(bitsize=len(quregs['selection']),iteration_length=len(quregs['target']))
             ),
             controlled = controlled
         ).on_registers(**quregs)

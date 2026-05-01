@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 from typing import List, Set
 
 from qualtran import GateWithRegisters, Signature
-from qualtran.bloqs.mcmt.multi_control_multi_target_pauli import MultiTargetCNOT
+from qualtran.bloqs.mcmt.multi_target_cnot import MultiTargetCNOT
 from qualtran.bloqs.arithmetic import Add, AddK
 from qualtran.bloqs.basic_gates import XGate
 from qualtran.cirq_interop.bit_tools import iter_bits_fixed_point

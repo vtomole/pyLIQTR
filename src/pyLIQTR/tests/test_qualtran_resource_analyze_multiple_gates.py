@@ -34,7 +34,7 @@ import qualtran.bloqs.chemistry.hubbard_model.qubitization as qt_hm
 from qualtran.bloqs.multiplexers.select_pauli_lcu import SelectPauliLCU
 from qualtran.bloqs.mcmt.multi_control_multi_target_pauli import MultiTargetCNOT, MultiControlPauli
 from qualtran.bloqs.qubitization_walk_operator_test import get_walk_operator_for_1d_ising_model
-from qualtran._infra.data_types import BoundedQUInt
+from qualtran._infra.data_types import BQUInt
 import pytest
 
 from pyLIQTR.utils.resource_analysis import pylqt_t_complexity as t_complexity
@@ -98,7 +98,7 @@ class TestCirqFTMultipleGateDecompose:
 
     def test_cirqft_apply_gate_to_lth_qubit(self):
         apply_z_to_odd = qt.bloqs.multiplexers.apply_gate_to_lth_target.ApplyGateToLthQubit(
-            _infra.registers.Register('selection', dtype=BoundedQUInt(3, 4)),
+            _infra.registers.Register('selection', dtype=BQUInt(3, 4)),
             nth_gate=_z_to_odd,
             # control_regs=cirq_ft.Signature.build(control=2),
         )
