@@ -10,7 +10,6 @@ from types import GeneratorType
 from pyLIQTR.gate_decomp.rotation_gates import decomp_mixin
 from pyLIQTR.utils.circuit_decomposition import generator_decompose, keep, test_for_bad_gate_op
 from typing import FrozenSet, Iterable, List, Tuple, Union
-from cirq.type_workarounds import NotImplementedType
 from pyLIQTR.gate_decomp.cirq_transforms import clifford_plus_t_direct_transform, determine_gate_precision, _perop_clifford_plus_t_direct_transform
 
 from warnings import warn

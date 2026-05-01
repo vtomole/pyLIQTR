@@ -10,7 +10,7 @@ from typing import Dict, Tuple, Optional, Callable, Union, Sequence
 from numpy.typing import NDArray
 
 from qualtran import BQUInt, Register, Side, QBit, QAny, Signature
-from qualtran.bloqs.block_encoding.lcu_select_and_prepare import SelectOracle
+from qualtran.bloqs.multiplexers.select_base import SelectOracle
 from qualtran.bloqs.chemistry.pbc.first_quantization.select_and_prepare import MultiplexedCSwap3D
 
 from pyLIQTR.circuits.operators.SelectUV_FirstQuantized import SelectUVFirstQuantization

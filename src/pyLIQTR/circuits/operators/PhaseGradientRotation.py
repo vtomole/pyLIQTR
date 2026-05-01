@@ -15,14 +15,14 @@ from qualtran import GateWithRegisters, Signature
 from qualtran.bloqs.mcmt.multi_target_cnot import MultiTargetCNOT
 from qualtran.bloqs.arithmetic import Add, AddK
 from qualtran.bloqs.basic_gates import XGate
-from qualtran.cirq_interop.bit_tools import iter_bits_fixed_point
+from qualtran._infra.data_types import QFxp
 from qualtran._infra.data_types import QUInt
 
 def approx_angle_with_br_bits(angle:float,br:int=8):
     # normalize angle
     angle_norm = angle / (2*np.pi) % 1
     # approximate to br bits and express in binary
-    binary_angle = list(iter_bits_fixed_point(angle_norm,width=br,signed=False))
+    binary_angle = list(QFxp(br, br).to_bits(angle_norm, require_exact=False))
     return binary_angle
 
 @attrs.frozen
