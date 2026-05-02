@@ -41,6 +41,7 @@ class ControlledCopy(GateWithRegisters):
 
     bitsize: int
     control_val: Optional[int] = 1
+    is_adjoint: bool = False
 
     @cached_property
     def signature(self) -> Signature:
@@ -69,16 +70,32 @@ class ControlledCopy(GateWithRegisters):
         if self.control_val == 0:
             yield XGate().on(*control)
 
+        and_bloq = And().adjoint() if self.is_adjoint else And()
         for i,bit in enumerate(original):
-            yield And().on_registers(ctrl=[control,[bit]],target=target[i])
+            yield and_bloq.on_registers(ctrl=[control, [bit]],target=target[i])
 
         if self.control_val == 0:
             yield XGate().on(*control)
 
     def build_call_graph(self, ssa: 'SympySymbolAllocator') -> Set['BloqCountT']:
+        and_bloq = And().adjoint() if self.is_adjoint else And()
         if self.control_val == 0:
-            return {(And(), self.bitsize),(XGate(),2)}
-        return {(And(), self.bitsize)}
+            return {(and_bloq, self.bitsize),(XGate(),2)}
+        return {(and_bloq, self.bitsize)}
+
+    def adjoint(self):
+        return ControlledCopy(
+            bitsize=self.bitsize,
+            control_val=self.control_val,
+            is_adjoint=not self.is_adjoint,
+        )
+
+    def __pow__(self, power):
+        if power == 1:
+            return self
+        if power == -1:
+            return self.adjoint()
+        return NotImplemented
 
 class MultiplexedControlledCopy(UnaryIterationGate):
     """

@@ -51,8 +51,9 @@ class Product(GateWithRegisters):
     :param int a_bitsize: Size of register A
     :param Optional[int] b_bitsize: Size of register B. Default is equal to a_bitsize.
     """
-    def __init__(self,a_bitsize:int,b_bitsize:Optional[int]=None):
+    def __init__(self,a_bitsize:int,b_bitsize:Optional[int]=None,is_adjoint:bool=False):
         self.a_bitsize = a_bitsize
+        self.is_adjoint = is_adjoint
         if b_bitsize is None:
             self.b_bitsize = a_bitsize
         else:
@@ -62,11 +63,12 @@ class Product(GateWithRegisters):
 
     @cached_property
     def signature(self) -> Signature:
+        side = Side.LEFT if self.is_adjoint else Side.RIGHT
         return Signature(
             [
                 Register('A', QUInt(bitsize=self.a_bitsize)),
                 Register('B', QUInt(bitsize=self.b_bitsize)),
-                Register('target', QUInt(bitsize=self.a_bitsize+self.b_bitsize),side=Side.RIGHT)
+                Register('target', QUInt(bitsize=self.a_bitsize+self.b_bitsize),side=side)
             ]
         )
 
@@ -95,6 +97,18 @@ class Product(GateWithRegisters):
         context: cirq.DecompositionContext,
         **quregs: NDArray[cirq.Qid],
     ) -> cirq.OP_TREE:
+        ops = list(self._decompose_forward_from_registers(context=context, **quregs))
+        if self.is_adjoint:
+            yield from (cirq.inverse(op) for op in reversed(ops))
+        else:
+            yield from ops
+
+    def _decompose_forward_from_registers(
+        self,
+        *,
+        context: cirq.DecompositionContext,
+        **quregs: NDArray[cirq.Qid],
+    ) -> cirq.OP_TREE:
 
         A_reg = quregs['A']
         B_reg = quregs['B']
@@ -114,6 +128,16 @@ class Product(GateWithRegisters):
             yield copy_gate.adjoint().on_registers(control=B_reg[self.b_bitsize-1-ell],original=A_reg,target=ancilla)
 
         context.qubit_manager.qfree(ancilla)
+
+    def adjoint(self):
+        return Product(self.a_bitsize, self.b_bitsize, is_adjoint=not self.is_adjoint)
+
+    def __pow__(self, power):
+        if power == 1:
+            return self
+        if power == -1:
+            return self.adjoint()
+        return NotImplemented
 
     def build_call_graph(self, ssa: 'SympySymbolAllocator') -> Set['BloqCountT']:
         copy_gate = ControlledCopy(self.a_bitsize)

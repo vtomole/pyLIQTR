@@ -7,7 +7,7 @@ from functools import cached_property
 from numpy.typing import NDArray
 from typing import Set, Tuple
 
-from qualtran import GateWithRegisters, QAny, QBit, Register, Side, Signature
+from qualtran import DecomposeNotImplementedError, GateWithRegisters, QAny, QBit, Register, Side, Signature
 from qualtran.bloqs.state_preparation.prepare_uniform_superposition import PrepareUniformSuperposition
 from qualtran.bloqs.mcmt import MultiAnd
 from qualtran.symbolics.math_funcs import bit_length
@@ -58,34 +58,37 @@ class PrepareNuState(GateWithRegisters):
     :param int num_bits_p: The number of bits to represent each dimension of the momentum register :math:`|\\nu\\rangle`.
     :param int m_param: :math:`\\mathcal{M}` in the reference. Should be a power of two chosen to be sufficiently large to obtain an accurate block-encoding.
     """
-    def __init__(self,num_bits_p:int,m_param:int):
+    def __init__(self,num_bits_p:int,m_param:int,is_adjoint:bool=False):
         self.num_bits_p = num_bits_p
         self.m_param = m_param
+        self.is_adjoint = is_adjoint
         self.num_bits_m = bit_length(self.m_param - 1)
 
     @cached_property
     def ancilla_registers(self) -> Tuple[Register]:
-        return (Register("flag_zero_and_ancilla", QAny(self.num_bits_p - 1), shape=(3,), side=Side.RIGHT),
-        Register("flag_ancilla", QBit(), side=Side.RIGHT),
-        Register("and_ancilla", QBit(),shape=(2,), side=Side.RIGHT),
-        Register("nu_lt_mu_and_ancilla",QBit(),shape=(self.num_bits_p,2), side=Side.RIGHT),
-        Register("sos_product_ancilla", QAny(bitsize=int(3*self.num_bits_p*(self.num_bits_p-1)/2)),side=Side.RIGHT),
-        Register("sos_carry_ancilla",QAny(bitsize=int(self.num_bits_p*(3*self.num_bits_p+1)/2-3)),side=Side.RIGHT),
-        Register("nu_mag_squared", QAny(bitsize=2*self.num_bits_p+2),side=Side.RIGHT),
-        Register("m_times_nu", QAny(self.num_bits_m+2*self.num_bits_p+2), side=Side.RIGHT))
+        side = Side.LEFT if self.is_adjoint else Side.RIGHT
+        return (Register("flag_zero_and_ancilla", QAny(self.num_bits_p - 1), shape=(3,), side=side),
+        Register("flag_ancilla", QBit(), side=side),
+        Register("and_ancilla", QBit(),shape=(2,), side=side),
+        Register("nu_lt_mu_and_ancilla",QBit(),shape=(self.num_bits_p,2), side=side),
+        Register("sos_product_ancilla", QAny(bitsize=int(3*self.num_bits_p*(self.num_bits_p-1)/2)),side=side),
+        Register("sos_carry_ancilla",QAny(bitsize=int(self.num_bits_p*(3*self.num_bits_p+1)/2-3)),side=side),
+        Register("nu_mag_squared", QAny(bitsize=2*self.num_bits_p+2),side=side),
+        Register("m_times_nu", QAny(self.num_bits_m+2*self.num_bits_p+2), side=side))
 
     @cached_property
     def signature(self) -> Signature:
+        side = Side.LEFT if self.is_adjoint else Side.RIGHT
         return Signature(
             [
                 Register("mu", QAny(bitsize=self.num_bits_p)),
                 Register("nu", QAny(bitsize=self.num_bits_p + 1), shape=(3,)),
                 Register("m", QAny(bitsize=self.num_bits_m)),
-                Register("flag_dim", QBit(), shape=(3,), side=Side.RIGHT),
-                Register("flag_minus_zero", QBit(), side=Side.RIGHT),
-                Register("flag_ineq", QBit()),
-                Register("flag_nu_lt_mu", QBit()),
-                Register("flag_nu", QBit()),
+                Register("flag_dim", QBit(), shape=(3,), side=side),
+                Register("flag_minus_zero", QBit(), side=side),
+                Register("flag_ineq", QBit(), side=side),
+                Register("flag_nu_lt_mu", QBit(), side=side),
+                Register("flag_nu", QBit(), side=side),
                 Register("catalytic",QBit()),
                 *self.ancilla_registers
             ]
@@ -93,6 +96,19 @@ class PrepareNuState(GateWithRegisters):
 
     def pretty_name(self) -> str:
         return r"PREP 1/‖ν‖ ∣ν⟩"
+
+    def adjoint(self):
+        return PrepareNuState(self.num_bits_p, self.m_param, is_adjoint=not self.is_adjoint)
+
+    def __pow__(self, power):
+        if power == 1:
+            return self
+        if power == -1:
+            return self.adjoint()
+        return NotImplemented
+
+    def build_composite_bloq(self, bb, **soqs):
+        raise DecomposeNotImplementedError(f"{self} uses its Cirq decomposition.")
 
     def decompose_from_registers(
         self,
@@ -108,17 +124,19 @@ class PrepareNuState(GateWithRegisters):
         nu_lt_mu_and_ancilla, and_ancilla = quregs['nu_lt_mu_and_ancilla'], quregs['and_ancilla']
         sos_product_ancilla, sos_carry_ancilla, nu_mag_squared, m_times_nu = quregs['sos_product_ancilla'], quregs['sos_carry_ancilla'], quregs['nu_mag_squared'], quregs['m_times_nu']
 
-        yield PrepareMuUnaryEncoded(self.num_bits_p).on_registers(mu=mu, catalytic=catalytic)
+        ops = []
 
-        yield PrepareNuSuperposition(self.num_bits_p).on_registers(mu=mu, nu=nu, catalytic=catalytic)
+        ops.append(PrepareMuUnaryEncoded(self.num_bits_p).on_registers(mu=mu, catalytic=catalytic))
 
-        yield FlagZeroAsFailure(self.num_bits_p).on_registers(nu=nu,flag_dim=flag_dim, flag_minus_zero=flag_minus_zero,and_ancilla=flag_zero_and_ancilla,flag_ancilla=flag_ancilla)
+        ops.append(PrepareNuSuperposition(self.num_bits_p).on_registers(mu=mu, nu=nu, catalytic=catalytic))
 
-        yield FlagNuLessThanMu(self.num_bits_p).on_registers(mu=mu, nu=nu, flag_nu_lt_mu=flag_nu_lt_mu, and_ancilla=nu_lt_mu_and_ancilla)
+        ops.append(FlagZeroAsFailure(self.num_bits_p).on_registers(nu=nu,flag_dim=flag_dim, flag_minus_zero=flag_minus_zero,and_ancilla=flag_zero_and_ancilla,flag_ancilla=flag_ancilla))
 
-        yield PrepareUniformSuperposition(self.m_param).on_registers(target=m)
+        ops.append(FlagNuLessThanMu(self.num_bits_p).on_registers(mu=mu, nu=nu, flag_nu_lt_mu=flag_nu_lt_mu, and_ancilla=nu_lt_mu_and_ancilla))
 
-        yield NuInequalityTest(self.num_bits_p, self.num_bits_m).on_registers(mu=mu, nu=nu, m=m,flag_ineq=flag_ineq, sos_product_ancilla=sos_product_ancilla, sos_carry_ancilla=sos_carry_ancilla, nu_mag_squared=nu_mag_squared, m_times_nu=m_times_nu)
+        ops.append(PrepareUniformSuperposition(self.m_param).on_registers(target=m))
+
+        ops.append(NuInequalityTest(self.num_bits_p, self.num_bits_m).on_registers(mu=mu, nu=nu, m=m,flag_ineq=flag_ineq, sos_product_ancilla=sos_product_ancilla, sos_carry_ancilla=sos_carry_ancilla, nu_mag_squared=nu_mag_squared, m_times_nu=m_times_nu))
 
         # flag overall success with 3 Ands
         ## four controls should be:
@@ -126,7 +144,12 @@ class PrepareNuState(GateWithRegisters):
         ## 2 - negative zero
         ## 3 - inner box (fbox)
         ## 4 - inequality test
-        yield MultiAnd(cvs=(1,1,1,1)).on_registers(ctrl=[[mu[0]],flag_minus_zero, flag_nu_lt_mu, flag_ineq],junk=and_ancilla,target=flag_nu)
+        ops.append(MultiAnd(cvs=(1,1,1,1)).on_registers(ctrl=[[mu[0]],flag_minus_zero, flag_nu_lt_mu, flag_ineq],junk=and_ancilla,target=flag_nu))
+
+        if self.is_adjoint:
+            yield from (cirq.inverse(op) for op in reversed(ops))
+        else:
+            yield from ops
 
     def build_call_graph(self, ssa: 'SympySymbolAllocator') -> Set['BloqCountT']:
         # 1. Prepare unary encoded superposition state (Eq 77)

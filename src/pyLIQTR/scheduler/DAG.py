@@ -169,8 +169,7 @@ class DAG:
             return "End"
         else:
             if len(self.free_instructions) == 0:
-                for i in range(self.insts_in_dag):
-                    node = self.dag.node_indices()[i]
+                for node in self.dag.node_indices():
                     in_degree = self.dag.in_degree(node)
                     if in_degree == 0:
                         self.free_instructions.append(self.dag.get_node_data(node))

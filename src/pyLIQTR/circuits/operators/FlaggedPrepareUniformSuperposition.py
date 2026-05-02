@@ -13,7 +13,7 @@ from numpy.typing import NDArray
 from qualtran import GateWithRegisters, Signature
 from qualtran.bloqs.mcmt.and_bloq import And, MultiAnd
 from qualtran.bloqs.arithmetic import LessThanConstant
-from qualtran.bloqs.mcmt.multi_control_pauli import MultiControlPauli
+from pyLIQTR.utils.qualtran_compat import MultiControlPauli
 from qualtran.bloqs.basic_gates import XGate, Hadamard, CZPowGate, CNOT, Ry, OnEach
 
 class FlaggedPrepareUniformSuperposition(GateWithRegisters):
@@ -73,7 +73,7 @@ class FlaggedPrepareUniformSuperposition(GateWithRegisters):
 
         # iv. Rotate ancilla qubit
         rotation_angle = 2*np.arcsin(np.sqrt(2**(logL)/(4*l)))
-        yield Ry(angle=rotation_angle)(*rot_ancilla)
+        yield Ry(angle=rotation_angle).on(*rot_ancilla)
 
         # v. Reflection on result of inequality test and ancilla
         yield XGate().on(*rot_ancilla)
@@ -81,7 +81,7 @@ class FlaggedPrepareUniformSuperposition(GateWithRegisters):
         yield XGate().on(*rot_ancilla)
 
         # vi. Invert rotation
-        yield Ry(angle=-rotation_angle)(*rot_ancilla)
+        yield Ry(angle=-rotation_angle).on(*rot_ancilla)
         ## and invert inequality test
         yield LessThanConstant(logL, l).on_registers(x=logL_qubits, target=less_than)
 

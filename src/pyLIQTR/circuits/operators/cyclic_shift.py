@@ -12,7 +12,7 @@ from qualtran import Register, QAny, QBit, Signature, GateWithRegisters
 from qualtran.bloqs.mcmt import And 
 from qualtran.cirq_interop.t_complexity_protocol import TComplexity
 from pyLIQTR.utils.global_ancilla_manager import GlobalQubitManager as manager
-from qualtran.bloqs.mcmt import MultiControlPauli as mcmtp
+from pyLIQTR.utils.qualtran_compat import MultiControlPauli as mcmtp
 
 class CyclicShiftPermutation(GateWithRegisters):
     """

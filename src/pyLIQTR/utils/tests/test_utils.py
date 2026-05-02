@@ -55,9 +55,9 @@ class TestUtils:
         yield trotterized_hamiltonian
         del trotterized_hamiltonian
 
-    @pytest.mark.skip
     @pytest.fixture(scope="class")
     def vlasov_n8_qsp(self):
+        pytest.skip("Skipped until this fixture is enabled for supported environments")
         random.seed(0)
         N      = 8
         k      =  2.0

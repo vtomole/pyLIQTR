@@ -11,7 +11,7 @@ from qualtran import GateWithRegisters, Signature, Register, QBit, QAny, BQUInt
 from qualtran.bloqs.basic_gates import Toffoli, ZGate, Hadamard, CZPowGate
 from qualtran.bloqs.bookkeeping import ArbitraryClifford
 from qualtran.cirq_interop import CirqGateAsBloq
-from qualtran.bloqs.mcmt.multi_control_pauli import MultiControlPauli
+from pyLIQTR.utils.qualtran_compat import MultiControlPauli
 
 from pyLIQTR.circuits.operators.ControlledCopy import MultiplexedControlledCopy
 
@@ -104,7 +104,7 @@ class SelectT_FirstQuantized(GateWithRegisters):
     def build_call_graph(self, ssa: 'SympySymbolAllocator') -> Set['BloqCountT']:
         # use ArbitraryClifford(n=1) for cirq.reset
         mcc = MultiplexedControlledCopy(target_bitsize=self.num_bits_p)
-        return {(mcc, 1),(MultiControlPauli(cvs=(1,1),target_gate=cirq.Z),1), (Toffoli(),2*self.num_bits_p),(ZGate(),1),(Hadamard(),2),(CirqGateAsBloq(cirq.MeasurementGate(num_qubits=1)),2),(cirq.ClassicallyControlledOperation(sub_operation=cirq.CZ(cirq.LineQubit(0),cirq.LineQubit(1)),conditions=''),2*self.num_bits_p),(ArbitraryClifford(n=1),2),(mcc.adjoint(),1)}
+        return {(mcc, 1),(MultiControlPauli(cvs=(1,1),target_gate=cirq.Z),1), (Toffoli(),2*self.num_bits_p),(ZGate(),1),(Hadamard(),2),(CirqGateAsBloq(cirq.MeasurementGate(num_qubits=1)),2),(CZPowGate(),2*self.num_bits_p),(ArbitraryClifford(n=1),2),(mcc.adjoint(),1)}
 
     def call_graph(
         self,

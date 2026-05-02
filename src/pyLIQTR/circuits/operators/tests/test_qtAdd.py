@@ -16,6 +16,9 @@ from pyLIQTR.circuits.operators.PhaseGradientRotation import approx_angle_with_b
 from qualtran.bloqs.rotations.phase_gradient import PhaseGradientState
 from pyLIQTR.circuits.operators.tests.utils import get_partial_state
 
+def uint_bits(bitsize, value):
+    return list(QUInt(bitsize).to_bits(value % (1 << bitsize)))
+
 class TestqtAdd:
 
     @pytest.mark.parametrize("int_x,int_y",[(1,2),(6,9),(10,8),(8,3),(4,4)])
@@ -40,10 +43,10 @@ class TestqtAdd:
         # input states
         int_out_add = int_x+int_y
         int_out_sub = int_y-int_x
-        init_state = list(QInt(nb_x).to_bits(int_x)) + list(QInt(nout).to_bits(int_y)) + [0]*len(zero_pad)
+        init_state = uint_bits(nb_x, int_x) + uint_bits(nout, int_y) + [0]*len(zero_pad)
         # output states
-        out_state_add = list(QInt(nb_x).to_bits(int_x)) + list(QInt(nout).to_bits(int_out_add)) + [0]*len(zero_pad)
-        out_state_sub = list(QInt(nb_x).to_bits(int_x)) + list(QInt(nout).to_bits(int_out_sub)) + [0]*len(zero_pad)
+        out_state_add = uint_bits(nb_x, int_x) + uint_bits(nout, int_out_add) + [0]*len(zero_pad)
+        out_state_sub = uint_bits(nb_x, int_x) + uint_bits(nout, int_out_sub) + [0]*len(zero_pad)
         # verify simulated results
         qubit_order = [*in_x,*out_y,*zero_pad]
         assert_circuit_inp_out_cirqsim(add_circuit,qubit_order=qubit_order,inputs=init_state,outputs=out_state_add)
@@ -116,7 +119,7 @@ class TestqtAdd:
         # input states
         int_out_add = int_x+int_y
         int_out_sub = int_y-int_x
-        init_state = list(QInt(nb_x).to_bits(int_x)) + list(QInt(nout).to_bits(int_y)) + [0]*len(zero_pad)
+        init_state = uint_bits(nb_x, int_x) + uint_bits(nout, int_y) + [0]*len(zero_pad)
         # output states equal input
         # verify simulated results
         qubit_order = [*in_x,*out_y,*zero_pad]

@@ -5,7 +5,8 @@ SPDX-License-Identifier: BSD-2-Clause
 from functools import cached_property
 from typing import Dict, Optional, Tuple
 
-from attrs import frozen
+import cirq
+from attrs import evolve, frozen
 
 from qualtran import (
     Bloq,
@@ -104,6 +105,7 @@ class PrepareFirstQuantization(PrepareOracle):
     num_bits_nuc_pos: int = 16
     num_bits_t: int = 16
     num_bits_rot_aa: int = 8
+    is_adjoint: bool = False
 
     @property
     def selection_registers(self) -> Tuple[Register, ...]:
@@ -133,14 +135,14 @@ class PrepareFirstQuantization(PrepareOracle):
         n_m = (self.m_param - 1).bit_length()
         bphi = max(self.num_bits_t,self.num_bits_nuc_pos)
         return (
-            Register("succ_nu", QBit()), 
+            Register("succ_nu", QBit(), side=Side.RIGHT), 
             Register("plus_t", QBit()),
             Register('succ_i', QBit(), side=Side.RIGHT),
             Register('succ_j', QBit(), side=Side.RIGHT),
             Register('flag_equal', QBit(), side=Side.RIGHT),
-            Register('flag_ineq_uv', QBit()),
-            Register('flag_ineq_m_nu', QBit()),
-            Register('flag_prep_success_uv',QBit()),
+            Register('flag_ineq_uv', QBit(), side=Side.RIGHT),
+            Register('flag_ineq_m_nu', QBit(), side=Side.RIGHT),
+            Register('flag_prep_success_uv',QBit(), side=Side.RIGHT),
             Register('flag_w', QBit(),side=Side.RIGHT),
             Register('less_than_ancilla', QBit(), shape=(2,1), side=Side.RIGHT),
             Register('rotation_ancilla', QBit(), shape=(2,1), side=Side.RIGHT),
@@ -153,7 +155,7 @@ class PrepareFirstQuantization(PrepareOracle):
             Register("flag_zero_and_ancilla", QAny(self.num_bits_p - 1), shape=(3,), side=Side.RIGHT),
             Register("flag_minus_zero", QBit(), side=Side.RIGHT),
             Register("flag_ancilla", QBit(), side=Side.RIGHT),
-            Register("flag_nu_lt_mu", QBit()),
+            Register("flag_nu_lt_mu", QBit(), side=Side.RIGHT),
             Register("and_ancilla", QBit(),shape=(2,), side=Side.RIGHT),
             Register("nu_lt_mu_and_ancilla",QBit(),shape=(self.num_bits_p,2), side=Side.RIGHT),
             Register("sos_product_ancilla", QAny(bitsize=int(3*self.num_bits_p*(self.num_bits_p-1)/2)),side=Side.RIGHT),
@@ -164,6 +166,85 @@ class PrepareFirstQuantization(PrepareOracle):
 
     def pretty_name(self) -> str:
         return r'PREP'
+
+    def adjoint(self) -> 'Bloq':
+        return evolve(self, is_adjoint=not self.is_adjoint)
+
+    def __pow__(self, power):
+        if power == 1:
+            return self
+        if power == -1:
+            return self.adjoint()
+        return NotImplemented
+
+    def decompose_from_registers(self, *, context: cirq.DecompositionContext, **quregs):
+        bphi = max(self.num_bits_t,self.num_bits_nuc_pos)
+        ops = [
+            PrepareTUVSuperpositions(
+                self.num_bits_t, self.eta, self.lambda_zeta, bphi=bphi
+            ).on_registers(
+                tuv=quregs['tuv'],
+                uv=quregs['uv'],
+                rot_ancilla=quregs['rotation_ancilla_uv'],
+                flag_prep_success=quregs['flag_prep_success_uv'],
+                flag_inequality=quregs['flag_ineq_uv'],
+                superposition_state=quregs['uv_superposition'],
+                phase_gradient_state=quregs['phase_gradient_state'],
+            ),
+            UniformSuperpositionIJFirstQuantization(self.eta).on_registers(
+                i=quregs['i'],
+                j=quregs['j'],
+                succ_i=quregs['succ_i'],
+                succ_j=quregs['succ_j'],
+                flag_equal=quregs['flag_equal'],
+                less_than_ancilla=quregs['less_than_ancilla'],
+                rotation_ancilla=quregs['rotation_ancilla'],
+            ),
+            Hadamard().on(*quregs['plus_t']),
+            PrepareT_FirstQuantized(self.num_bits_p,prepare_catalytic_state=True).on_registers(
+                w=quregs['w'],
+                r=quregs['r'],
+                s=quregs['s'],
+                less_than_ancilla=quregs['T_less_than_ancilla'],
+                rot_ancilla=quregs['T_rotation_ancilla'],
+                catalytic=quregs['catalytic'],
+                flag_w=quregs['flag_w'],
+            ),
+            PrepareUV_FirstQuantized(
+                self.num_bits_p,
+                self.eta,
+                self.num_atoms,
+                self.m_param,
+                self.lambda_zeta,
+                self.num_bits_nuc_pos,
+            ).on_registers(
+                mu=quregs['mu'],
+                nu=[quregs['nu_x'], quregs['nu_y'], quregs['nu_z']],
+                m=quregs['m'],
+                superposition_state=quregs['uv_superposition'],
+                Rl=quregs['Rl'],
+                flag_ineq=quregs['flag_ineq_m_nu'],
+                flag_nu_lt_mu=quregs['flag_nu_lt_mu'],
+                flag_nu=quregs['succ_nu'],
+                flag_ineq_uv=quregs['flag_ineq_uv'],
+                catalytic=quregs['catalytic'],
+                flag_dim=quregs['flag_dim'],
+                flag_minus_zero=quregs['flag_minus_zero'],
+                flag_zero_and_ancilla=quregs['flag_zero_and_ancilla'],
+                flag_ancilla=quregs['flag_ancilla'],
+                and_ancilla=quregs['and_ancilla'],
+                nu_lt_mu_and_ancilla=quregs['nu_lt_mu_and_ancilla'],
+                sos_product_ancilla=quregs['sos_product_ancilla'],
+                sos_carry_ancilla=quregs['sos_carry_ancilla'],
+                nu_mag_squared=quregs['nu_mag_squared'],
+                m_times_nu=quregs['m_times_nu'],
+            ),
+        ]
+
+        if self.is_adjoint:
+            yield from (cirq.inverse(op) for op in reversed(ops))
+        else:
+            yield from ops
 
     def build_composite_bloq(
         self,
@@ -177,8 +258,6 @@ class PrepareFirstQuantization(PrepareOracle):
         s: SoquetT,
         uv_superposition: SoquetT,
         rotation_ancilla_uv: SoquetT,
-        flag_prep_success_uv: SoquetT,
-        flag_ineq_uv: SoquetT,
         T_less_than_ancilla: SoquetT,
         T_rotation_ancilla: SoquetT,
         catalytic: SoquetT,
@@ -188,10 +267,7 @@ class PrepareFirstQuantization(PrepareOracle):
         nu_y: Soquet,
         nu_z: Soquet,
         m: SoquetT,
-        succ_nu: SoquetT,
         Rl: SoquetT,
-        flag_ineq_m_nu: SoquetT,
-        flag_nu_lt_mu: SoquetT,
     ) -> Dict[str, 'SoquetT']:
         bphi = max(self.num_bits_t,self.num_bits_nuc_pos)
         tuv, uv, rotation_ancilla_uv,flag_prep_success_uv, flag_ineq_uv, uv_superposition, phase_gradient_state = bb.add(
@@ -199,8 +275,7 @@ class PrepareFirstQuantization(PrepareOracle):
                 self.num_bits_t, self.eta, self.lambda_zeta, bphi=bphi
             ),
             tuv=tuv,
-            rot_ancilla=rotation_ancilla_uv,flag_prep_success=flag_prep_success_uv,
-            flag_inequality=flag_ineq_uv,
+            rot_ancilla=rotation_ancilla_uv,
             superposition_state=uv_superposition,
             phase_gradient_state=phase_gradient_state
         )
@@ -234,9 +309,6 @@ class PrepareFirstQuantization(PrepareOracle):
             m=m,
             superposition_state=uv_superposition,
             Rl=Rl,
-            flag_ineq=flag_ineq_m_nu,
-            flag_nu_lt_mu=flag_nu_lt_mu,
-            flag_nu=succ_nu,
             flag_ineq_uv=flag_ineq_uv,
             catalytic=catalytic
         )

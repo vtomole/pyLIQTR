@@ -268,6 +268,10 @@ def openqasm(circuit: cirq.AbstractCircuit,
                 pass
             if isinstance(op._gate,cirq.GlobalPhaseGate):
                 continue
+            if isinstance(op.gate, cirq.CZPowGate) and op.gate.exponent not in (1, 1.0, -1, -1.0):
+                q0, q1 = op.qubits
+                yield 'cu1(pi*{}) {},{};'.format(op.gate.exponent, myQASMInfo.qubit_map[q0], myQASMInfo.qubit_map[q1])
+                continue
             test_op = test_for_bad_gate_op(op)
             if test_op is None:
                 #does not handle XPowGates properly if rotation_allowed=False...
@@ -330,19 +334,28 @@ def openqasm(circuit: cirq.AbstractCircuit,
                 recursionLvl -= 1
             elif "qualtran.cirq_interop._bloq_to_cirq" in op._gate.__module__:
                 gates = [
-                    'bloq.Toffoli'
+                    'bloq.X', 'bloq.Z', 'bloq.Z**-1.0', 'bloq.Z**-0.5', 'bloq.H', 'bloq.S', 'bloq.S\u2020', 'bloq.T', 'bloq.T\u2020', 'bloq.CNOT', 'bloq.CZ',
+                    'bloq.Toffoli', 'bloq.TwoBitSwap', 'bloq.TwoBitCSwap'
                 ]
                 skip_gates = [
                     'bloq.Allocate','bloq.Free'
                 ]
-                cirq_gates = [cirq.CCX]
+                cirq_gates = [cirq.X, cirq.Z, cirq.Z**-1, cirq.Z**-0.5, cirq.H, cirq.S, cirq.S**-1, cirq.T, cirq.T**-1, cirq.CNOT, cirq.CZ, cirq.CCX, cirq.SWAP, cirq.CSWAP]
                 bloq2cirq = {g:cg for g,cg in zip(gates, cirq_gates)}
-                if str(op.gate) in skip_gates:
+                gate_str = str(op.gate)
+                if gate_str in skip_gates:
                     continue
-                elif str(op.gate) not in bloq2cirq:
-                    raise NotImplementedError("Uncpatured bloq2cirq conversion {}".format(str(op.gate)))
+                elif gate_str.startswith('bloq.Z**'):
+                    yield cirq.qasm((cirq.Z**float(gate_str.split('**', 1)[1])).on(*op.qubits), args=myQASMInfo.qasm_args).strip()
+                elif gate_str.startswith(('bloq.Rx(', 'bloq.Ry(', 'bloq.Rz(')):
+                    rotation_gates = {'x': cirq.rx, 'y': cirq.ry, 'z': cirq.rz}
+                    axis = gate_str[6].lower()
+                    angle = float(gate_str.split('(', 1)[1].rsplit(')', 1)[0])
+                    yield cirq.qasm(rotation_gates[axis](angle).on(*op.qubits), args=myQASMInfo.qasm_args).strip()
+                elif gate_str not in bloq2cirq:
+                    raise NotImplementedError("Uncpatured bloq2cirq conversion {}".format(gate_str))
                 else:
-                    yield cirq.qasm(bloq2cirq[str(op._gate)].on(*op.qubits),args=myQASMInfo.qasm_args).strip()
+                    yield cirq.qasm(bloq2cirq[gate_str].on(*op.qubits),args=myQASMInfo.qasm_args).strip()
             
             else:
                 for k,v in qubit_map_str2key.items():

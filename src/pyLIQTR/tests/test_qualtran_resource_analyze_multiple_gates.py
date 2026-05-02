@@ -33,8 +33,8 @@ from qualtran import _infra
 import qualtran.bloqs.chemistry.hubbard_model.qubitization as qt_hm
 from qualtran.bloqs.multiplexers.select_pauli_lcu import SelectPauliLCU
 from qualtran.bloqs.mcmt.multi_target_cnot import MultiTargetCNOT
-from qualtran.bloqs.mcmt.multi_control_pauli import MultiControlPauli
-from qualtran.bloqs.qubitization_walk_operator_test import get_walk_operator_for_1d_ising_model
+from pyLIQTR.utils.qualtran_compat import MultiControlPauli
+from qualtran.bloqs.chemistry.ising.walk_operator import get_walk_operator_for_1d_ising_model
 from qualtran._infra.data_types import BQUInt
 import pytest
 
@@ -165,7 +165,7 @@ class TestCirqFTMultipleGateDecompose:
         eps: float = 1e-5
         m_bits: int = 14
 
-        walk = get_walk_operator_for_1d_ising_model(num_sites, eps)
+        walk, _ = get_walk_operator_for_1d_ising_model(num_sites, eps)
         cft_op = walk.on_registers(**_infra.gate_with_registers.get_named_qubits(walk.signature))
         cft = t_complexity(cft_op)
 

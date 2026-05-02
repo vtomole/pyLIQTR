@@ -106,6 +106,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.codex
 env/
 venv/
 ENV/
@@ -152,6 +153,9 @@ src/QSP/originalQSP/prec1em6*
 
 # QASM:
 #*.qasm - removed this because we have a few QASM test files that need to be part of the repo
+
+# Scheduler output:
+*_sched_output.json
 
 # Data:
 *.csv

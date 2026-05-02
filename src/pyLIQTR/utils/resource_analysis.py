@@ -20,6 +20,7 @@ from pyLIQTR.gate_decomp.rotation_gates import T_COUNT_CONST, T_COUNT_SLOPE, T_C
 
 from qualtran.cirq_interop.t_complexity_protocol import TComplexity, _get_hash,_t_complexity_from_strategies, \
          _t_complexity_for_gate_or_op,\
+        t_complexity as _qualtran_t_complexity,\
         _from_explicit_annotation,\
         _from_directly_countable_cirq,\
         _from_cirq_decomposition,\
@@ -32,11 +33,14 @@ from qualtran import Bloq
 def _plyqt_from_bloq_build_call_graph(stc: Any) -> Optional[TComplexity]:
     # Uses the depth 1 call graph of Bloq `stc` to recursively compute the complexity.
     from qualtran.resource_counting import get_bloq_callee_counts
-    from qualtran.resource_counting.generalizers import cirq_to_bloqs
+    from qualtran.resource_counting.generalizers import cirq_to_bloqs, ignore_alloc_free, ignore_split_join
 
     if not isinstance(stc, Bloq):
         return None
-    callee_counts = get_bloq_callee_counts(bloq=stc, generalizer=cirq_to_bloqs)
+    callee_counts = get_bloq_callee_counts(
+        bloq=stc,
+        generalizer=[cirq_to_bloqs, ignore_split_join, ignore_alloc_free],
+    )
     if len(callee_counts) == 0:
         return None
     ret = TComplexity()
@@ -46,6 +50,88 @@ def _plyqt_from_bloq_build_call_graph(stc: Any) -> Optional[TComplexity]:
             return None
         ret += n * r
     return ret
+
+
+def _pylqt_from_ignored_bloq(stc: Any) -> Optional[TComplexity]:
+    from qualtran.bloqs.bookkeeping import Allocate, Cast, Free, Join, Join2, Partition, Split, Split2
+
+    if isinstance(stc, (Allocate, Cast, Free, Join, Join2, Partition, Split, Split2)):
+        return TComplexity()
+    return None
+
+
+def _pylqt_from_directly_countable_cirq(stc: Any) -> Optional[TComplexity]:
+    """Directly count small Cirq gates without asking Cirq to unitary-check large gates."""
+    if not isinstance(stc, (cirq.Gate, cirq.Operation)):
+        return None
+
+    if isinstance(stc, cirq.Operation) and stc.gate is not None:
+        stc = stc.gate
+
+    try:
+        if cirq.num_qubits(stc) > 2:
+            return None
+    except TypeError:
+        return None
+
+    return _from_directly_countable_cirq(stc)
+
+
+def _pylqt_from_cirq_gate_as_bloq(stc: Any) -> Optional[TComplexity]:
+    cirq_gate = getattr(stc, 'cirq_gate', None)
+    if cirq_gate is None:
+        return None
+
+    try:
+        return _pylqt_from_directly_countable_cirq(cirq_gate)
+    except (TypeError, ValueError):
+        return None
+
+
+def _pylqt_from_bloq_as_cirq_gate(stc: Any) -> Optional[TComplexity]:
+    bloq = getattr(stc, 'bloq', None) or getattr(stc, '_bloq', None)
+    if bloq is None:
+        return None
+
+    try:
+        return pylqt_t_complexity(bloq)
+    except Exception:
+        return None
+
+
+def _pylqt_from_qualtran_clifford_bloq(stc: Any) -> Optional[TComplexity]:
+    """Restore pyLIQTR's Clifford accounting for Qualtran bloqs with generic costs."""
+    try:
+        from qualtran.bloqs.basic_gates import CZPowGate
+    except ImportError:
+        return None
+
+    if isinstance(stc, CZPowGate):
+        try:
+            exponent = float(stc.exponent)
+        except (TypeError, ValueError):
+            return None
+
+        exponent_mod_two = exponent % 2
+        if np.isclose(exponent_mod_two, 0):
+            return TComplexity()
+        if np.isclose(exponent_mod_two, 1):
+            return TComplexity(clifford=1)
+
+    return None
+
+
+def _pylqt_from_qualtran_bloq_cost(stc: Any) -> Optional[TComplexity]:
+    if not isinstance(stc, Bloq):
+        return None
+
+    if stc.__class__.__module__.startswith("pyLIQTR."):
+        return None
+
+    try:
+        return _qualtran_t_complexity(stc)
+    except Exception:
+        return None
 
 
 @cachetools.cached(cachetools.LRUCache(128), key=_get_hash, info=True)
@@ -60,9 +146,14 @@ def _pylqt_t_complexity_for_gate_or_op(
 
     strategies = [
             from_measurement,
+            _pylqt_from_ignored_bloq,
             _from_explicit_annotation,
-            _from_directly_countable_cirq,
+            _pylqt_from_cirq_gate_as_bloq,
+            _pylqt_from_bloq_as_cirq_gate,
+            _pylqt_from_qualtran_clifford_bloq,
+            _pylqt_from_qualtran_bloq_cost,
             _plyqt_from_bloq_build_call_graph,
+            _pylqt_from_directly_countable_cirq,
             _from_cirq_decomposition,
             _from_iterable,
         ]
@@ -93,12 +184,19 @@ def pylqt_t_complexity(stc: Any) -> TComplexity:
                     stc = op
                     break
                 ret += thisComplexity
+            if ret is None:
+                break
     else:
         strategies = [
             from_measurement,
+            _pylqt_from_ignored_bloq,
             _from_explicit_annotation,
-            _from_directly_countable_cirq,
+            _pylqt_from_cirq_gate_as_bloq,
+            _pylqt_from_bloq_as_cirq_gate,
+            _pylqt_from_qualtran_clifford_bloq,
+            _pylqt_from_qualtran_bloq_cost,
             _plyqt_from_bloq_build_call_graph,
+            _pylqt_from_directly_countable_cirq,
             _from_cirq_decomposition,
             _from_iterable,
         ]

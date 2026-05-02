@@ -2,27 +2,24 @@
 Copyright (c) 2024 Massachusetts Institute of Technology 
 SPDX-License-Identifier: BSD-2-Clause
 """
-import juliapkg
-import sys
-if 'sphinx' not in sys.modules:
-    juliapkg.require_julia("~1.8,~1.9")
-    juliapkg.resolve()
-
-    import juliacall
-    from juliacall import Main as jl
-
-    jl.seval('import Pkg')
-    jl.seval('Pkg.add("QuantumMAMBO")')
-    jl.seval("using QuantumMAMBO")
-    jl.seval("using LinearAlgebra")
-    mambo = jl.QuantumMAMBO
-
 import numpy as np
 import scipy as sp
 import itertools
 from openfermion import FermionOperator, normal_ordered, InteractionOperator
 import openfermion as of
 from warnings import warn
+
+class _CartanData:
+    def __init__(self, lambdas):
+        self.λ = np.asarray(lambdas)
+
+
+class _DFFragment:
+    def __init__(self, coeff, lambdas, unitary):
+        self.coeff = coeff
+        self.C = _CartanData(lambdas)
+        self.U = (np.asarray(unitary),)
+
 
 def integrals2intop(h1, eri, ecore):
     '''
@@ -188,14 +185,14 @@ def givens_func(U):
     num_G = int(N*(N-1)/2)
     G = np.zeros(num_G)
 
-    u_curr = mambo.givens_real_orbital_rotation(N, G)
+    u_curr = np.eye(N)
     return u_curr
 
 def coeffs_to_givens(coeffs):
     #returns list of givens rotation angles from coefficients
     N = len(coeffs)
     thetas = 0.5 * np.pi * np.ones(N-1)
-    thetas[0] = (mambo.r_acos(coeffs[0])) / 2
+    thetas[0] = np.arccos(np.clip(coeffs[0], -1, 1)) / 2
 
     for i in range(1,N-1):
         cum_coef = np.sum((np.absolute(coeffs[0:i-1]))**2)
@@ -207,7 +204,7 @@ def coeffs_to_givens(coeffs):
         else:
             ccur = 0
             
-        thetas[i] = (mambo.r_acos(ccur)) / 2
+        thetas[i] = np.arccos(np.clip(ccur, -1, 1)) / 2
         
     if abs(coeffs[-1]) > 1e-10:
         thetas[-1] = thetas[-1] * np.sign(coeffs[-1])
@@ -226,7 +223,7 @@ def DF_decomposition(h0,obt,tbt, tol=1e-8, tiny=1e-12):
     
     #symmetry test
     tbt_full = np.reshape(tbt, (N,N))
-    tbt_res = jl.LinearAlgebra.Symmetric(tbt_full)
+    tbt_res = (tbt_full + tbt_full.transpose()) / 2
 
     if np.sum(abs(np.subtract(tbt_full, tbt_res))) > tiny:
         warn("Non-symmetric two-body tensor as input for DF routine, calculations might have errors...", stacklevel=2)
@@ -255,21 +252,19 @@ def DF_decomposition(h0,obt,tbt, tol=1e-8, tiny=1e-12):
     #second eigendecomposition (inner sum)
     for i in range(0,num_ops):
         full_l = np.reshape(vecs[:,i], (n,n))
-        cur_l = jl.LinearAlgebra.Symmetric(full_l)
+        cur_l = (full_l + full_l.transpose()) / 2
         sym_dif = np.sum((abs(np.subtract(cur_l, full_l)))**2)
         if sym_dif > tiny:
             #Hermitian test
             if np.sum(abs(np.add(full_l, full_l.transpose()))) > tiny:
                 #Fragment {i} is neither Hermitian or anti-Hermitian
-                cur_l = jl.LinearAlgebra.Hermitian(full_l)
+                cur_l = (full_l + full_l.conj().transpose()) / 2
                 vals[i] = -1 * vals[i]
         wl, Ul = np.linalg.eigh(cur_l)
 
 
         #build fragment
-        Rl = mambo.f_matrix_rotation(n, Ul)
-        C = mambo.cartan_1b(False, wl, n)
-        frags.append(mambo.F_FRAG(1, jl.tuple(Rl), mambo.DF(), C, n, False, all_vals[i], True))
+        frags.append(_DFFragment(all_vals[i], wl, Ul))
 
     return(frags)
 
@@ -277,20 +272,13 @@ def DF_decomposition(h0,obt,tbt, tol=1e-8, tiny=1e-12):
 def to_OBF(obt):
     #tranform one-body tensor into QuantumMAMBO F_FRAG.
     N = np.size(obt,0)
-    D, U = np.linalg.eig(obt)
-    C = mambo.cartan_1b(False, D, N)
-    fU = jl.tuple(mambo.f_matrix_rotation(N, U))
-    return mambo.F_FRAG(1, fU, mambo.OBF(), C, N, False, 1, False)
+    D, U = np.linalg.eigh(obt)
+    return _DFFragment(1, D, U)
     
 
-def U_to_Givens(U: mambo.F_UNITARY, k: int):
+def U_to_Givens(U, k: int):
     #transform unitary into one-body coefficients and wrap coeffs_to_givens function to return givens angles.
-    one_bod = mambo.one_body_unitary(U)
-    size = int(np.sqrt(len(one_bod)))
-    one_bod_list = []
-    for i in one_bod:
-        one_bod_list.append(i)
-    one_bod_array = np.reshape(one_bod_list, (size,size))
+    one_bod_array = np.asarray(U)
 
     coeffs = []
     for i in range(len(one_bod_array[k])):

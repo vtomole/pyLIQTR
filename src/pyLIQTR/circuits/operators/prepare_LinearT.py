@@ -13,7 +13,7 @@ from numpy.typing import NDArray
 from qualtran import GateWithRegisters, Register, Signature, BQUInt, QBit, QAny, QInt
 from qualtran.linalg.lcu_util import preprocess_probabilities_for_reversible_sampling
 from qualtran.bloqs.data_loading.qrom import QROM
-from qualtran.bloqs.mcmt.multi_control_pauli import MultiControlPauli
+from pyLIQTR.utils.qualtran_compat import MultiControlPauli
 from qualtran.bloqs.state_preparation import PrepareUniformSuperposition
 
 from pyLIQTR.circuits.operators.AddMod import Add

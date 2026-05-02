@@ -20,7 +20,7 @@ from pyLIQTR.circuits.operators.RotationsQROM import RotationsQROM
 
 from qualtran.linalg.lcu_util import _differences, _partial_sums
 from qualtran._infra.data_types import QFxp
-from qualtran.bloqs.mcmt.multi_control_pauli import MultiControlPauli
+from pyLIQTR.utils.qualtran_compat import MultiControlPauli
 from qualtran.bloqs.rotations.phase_gradient import PhaseGradientState
 from qualtran.bloqs.data_loading import QROM
 from qualtran._infra.data_types import BQUInt, QUInt, QBit
@@ -207,7 +207,8 @@ class DoubleFactorized(BlockEncoding):
             for p in range(p_sum_limits[l]): 
                 for i,theta in enumerate(self.givens_angle_tensor[l,p,:]):
                     theta_normalized = theta/(2*np.pi) % 1
-                    binary_theta = list(QFxp(self.bits_rot_givens, self.bits_rot_givens).to_bits(theta_normalized, require_exact=False))
+                    qfxp = QFxp(self.bits_rot_givens, self.bits_rot_givens)
+                    binary_theta = list(qfxp.to_bits(qfxp.to_fixed_width_int(theta_normalized, require_exact=False)))
                     givens_angles[m,i*self.bits_rot_givens:(i+1)*self.bits_rot_givens] = binary_theta #lsb is last element in list
                 m += 1
         return givens_angles
@@ -383,12 +384,13 @@ class DoubleFactorized(BlockEncoding):
         yield qrom_gate.on_registers(selection=l_reg,target0_=l_neq_0,target1_=Xi_l,target2_=offset,target3_=rot)
 
         ## undo OuterPrepare
-        yield cirq.inverse(outer_prep.on_registers(success=succ_l,selection=l_reg,sigma_mu=sigma_l,alt=alt_l,keep=keep_l,less_than_equal=less_than_equal_ancilla))
+        yield cirq.inverse(outer_prep.on_registers(success=succ_l,selection=l_reg,sigma_mu=sigma_l,alt=alt_l,keep=keep_l,less_than_equal=less_than_equal_ancilla,rot_ancilla=rot_ancilla_outer))
 
 def approx_angles_as_ints_with_br_bits(angles:NDArray[float],br:int=10):
     angles_normalized = angles / (2*np.pi) % 1
     approx_ints = np.zeros(len(angles),dtype=int)
     for i,angle in enumerate(angles_normalized):
-        binary_angle = list(QFxp(br, br).to_bits(angle, require_exact=False))
+        qfxp = QFxp(br, br)
+        binary_angle = list(qfxp.to_bits(qfxp.to_fixed_width_int(angle, require_exact=False)))
         approx_ints[i] = int(''.join(str(b) for b in binary_angle), 2)
     return approx_ints

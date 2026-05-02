@@ -29,21 +29,45 @@ class SumOf3Squares(GateWithRegisters):
     :param int num_bits_p: the number of bits :math:`n_p` which is equivalent to the size of one dimension of the input vector.
     """
 
-    def __init__(self,num_bits_p:int):
+    def __init__(self,num_bits_p:int,is_adjoint:bool=False):
         self.num_bits_p = num_bits_p
+        self.is_adjoint = is_adjoint
         self.half_n = int(np.ceil(self.num_bits_p/2))
         self._even_n = self.num_bits_p % 2 == 0
 
     @cached_property
     def signature(self):
+        side = Side.LEFT if self.is_adjoint else Side.RIGHT
         return Signature([
             Register("input_vector", QAny(bitsize=self.num_bits_p), shape=(3,)),
-            Register("output", QAny(bitsize=2*self.num_bits_p+2),side=Side.RIGHT),
-            Register("product_ancilla", QAny(bitsize=int(3*self.num_bits_p*(self.num_bits_p-1)/2)),side=Side.RIGHT),
-            Register("carry_ancilla",QAny(bitsize=int(self.num_bits_p*(3*self.num_bits_p+1)/2-3)),side=Side.RIGHT) #extra -2 since first and last carry go directly to output
+            Register("output", QAny(bitsize=2*self.num_bits_p+2),side=side),
+            Register("product_ancilla", QAny(bitsize=int(3*self.num_bits_p*(self.num_bits_p-1)/2)),side=side),
+            Register("carry_ancilla",QAny(bitsize=int(self.num_bits_p*(3*self.num_bits_p+1)/2-3)),side=side) #extra -2 since first and last carry go directly to output
         ])
 
+    def adjoint(self):
+        return SumOf3Squares(self.num_bits_p, is_adjoint=not self.is_adjoint)
+
+    def __pow__(self, power):
+        if power == 1:
+            return self
+        if power == -1:
+            return self.adjoint()
+        return NotImplemented
+
     def decompose_from_registers(
+        self,
+        *,
+        context: cirq.DecompositionContext,
+        **quregs,
+    ) -> cirq.OP_TREE:
+        ops = list(self._decompose_forward_from_registers(context=context, **quregs))
+        if self.is_adjoint:
+            yield from (cirq.inverse(op) for op in reversed(ops))
+        else:
+            yield from ops
+
+    def _decompose_forward_from_registers(
         self,
         *,
         context: cirq.DecompositionContext,
@@ -197,6 +221,8 @@ class SumOf3Squares(GateWithRegisters):
 
 
     def build_call_graph(self, ssa: 'SympySymbolAllocator') -> Set['BloqCountT']:
+        if self.is_adjoint:
+            return set()
         three_bit_adder = OutOfPlaceAdder(bitsize=1)
         if not self._even_n and self.num_bits_p-self.half_n>1:
             num_cnots = 4
