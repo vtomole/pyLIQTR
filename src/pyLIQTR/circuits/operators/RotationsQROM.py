@@ -3,7 +3,7 @@ Copyright (c) 2024 Massachusetts Institute of Technology
 SPDX-License-Identifier: BSD-2-Clause
 """
 import cirq
-from typing import Tuple, Callable
+from typing import Tuple
 from numpy.typing import NDArray
 from qualtran._infra.gate_with_registers import total_bits
 from qualtran.bloqs.basic_gates import CNOT
@@ -18,14 +18,14 @@ class RotationsQROM(QROMwithMeasurementUncompute):
     def _load_nth_data(
         self,
         selection_idx: Tuple[int, ...],
-        gate: Callable[[cirq.Qid], cirq.Operation],
+        ctrl_qubits: Tuple[cirq.Qid, ...] = (),
         **target_regs: NDArray[cirq.Qid],
     ) -> cirq.OP_TREE:
         for i, d in enumerate(self.data):
             target = target_regs.get(f'target{i}_', ())
             for q, bit in zip(target, d[selection_idx]):
                 if int(bit):
-                    yield gate(q)
+                    yield cirq.X(q).controlled_by(*ctrl_qubits)
 
     def _circuit_diagram_info_(self, _) -> cirq.CircuitDiagramInfo:
         wire_symbols = ["@"] * self.num_controls

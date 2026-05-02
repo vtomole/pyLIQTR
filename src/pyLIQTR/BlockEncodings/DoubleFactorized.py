@@ -19,11 +19,11 @@ from pyLIQTR.circuits.operators.DF_RotationsBlock import RotationsBlock
 from pyLIQTR.circuits.operators.RotationsQROM import RotationsQROM
 
 from qualtran.linalg.lcu_util import _differences, _partial_sums
-from qualtran.cirq_interop.bit_tools import iter_bits_fixed_point
-from qualtran.bloqs.mcmt.multi_control_multi_target_pauli import MultiControlPauli
+from qualtran._infra.data_types import QFxp
+from pyLIQTR.utils.qualtran_compat import MultiControlPauli
 from qualtran.bloqs.rotations.phase_gradient import PhaseGradientState
 from qualtran.bloqs.data_loading import QROM
-from qualtran._infra.data_types import BoundedQUInt, QUInt, QBit
+from qualtran._infra.data_types import BQUInt, QUInt, QBit
 from qualtran import Register, Signature, Side
 
 class DoubleFactorized(BlockEncoding):
@@ -112,8 +112,8 @@ class DoubleFactorized(BlockEncoding):
 
     @cached_property
     def selection_registers(self) -> Tuple[Register]:
-        l_reg = Register(name='l', dtype=BoundedQUInt(bitsize=self.nL,iteration_length=self.L + 1))
-        p_reg = Register(name='p',dtype=BoundedQUInt(bitsize=self.nXi))
+        l_reg = Register(name='l', dtype=BQUInt(bitsize=self.nL,iteration_length=self.L + 1))
+        p_reg = Register(name='p',dtype=BQUInt(bitsize=self.nXi))
         return (l_reg, p_reg)
 
     @cached_property
@@ -136,7 +136,7 @@ class DoubleFactorized(BlockEncoding):
     @cached_property
     def inner_prep_extra_registers(self)-> Tuple[Register]:
         return Signature(
-            [ Register('contiguous_index', BoundedQUInt(self.nLXi+1),side=Side.RIGHT),
+            [ Register('contiguous_index', BQUInt(self.nLXi+1),side=Side.RIGHT),
             Register('rot_ancilla', QBit()), # target for aa rotation
             Register('unary_ancilla', QUInt(self.nXi)),
             Register('alt', QUInt(self.nXi)),
@@ -207,7 +207,8 @@ class DoubleFactorized(BlockEncoding):
             for p in range(p_sum_limits[l]): 
                 for i,theta in enumerate(self.givens_angle_tensor[l,p,:]):
                     theta_normalized = theta/(2*np.pi) % 1
-                    binary_theta = list(iter_bits_fixed_point(theta_normalized,width=self.bits_rot_givens))
+                    qfxp = QFxp(self.bits_rot_givens, self.bits_rot_givens)
+                    binary_theta = list(qfxp.to_bits(qfxp.to_fixed_width_int(theta_normalized, require_exact=False)))
                     givens_angles[m,i*self.bits_rot_givens:(i+1)*self.bits_rot_givens] = binary_theta #lsb is last element in list
                 m += 1
         return givens_angles
@@ -383,12 +384,13 @@ class DoubleFactorized(BlockEncoding):
         yield qrom_gate.on_registers(selection=l_reg,target0_=l_neq_0,target1_=Xi_l,target2_=offset,target3_=rot)
 
         ## undo OuterPrepare
-        yield cirq.inverse(outer_prep.on_registers(success=succ_l,selection=l_reg,sigma_mu=sigma_l,alt=alt_l,keep=keep_l,less_than_equal=less_than_equal_ancilla))
+        yield cirq.inverse(outer_prep.on_registers(success=succ_l,selection=l_reg,sigma_mu=sigma_l,alt=alt_l,keep=keep_l,less_than_equal=less_than_equal_ancilla,rot_ancilla=rot_ancilla_outer))
 
 def approx_angles_as_ints_with_br_bits(angles:NDArray[float],br:int=10):
     angles_normalized = angles / (2*np.pi) % 1
     approx_ints = np.zeros(len(angles),dtype=int)
     for i,angle in enumerate(angles_normalized):
-        binary_angle = [*iter_bits_fixed_point(angle,width=br,signed=False)]
+        qfxp = QFxp(br, br)
+        binary_angle = list(qfxp.to_bits(qfxp.to_fixed_width_int(angle, require_exact=False)))
         approx_ints[i] = int(''.join(str(b) for b in binary_angle), 2)
     return approx_ints

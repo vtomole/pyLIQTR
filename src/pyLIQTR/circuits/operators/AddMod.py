@@ -14,6 +14,7 @@ from functools import cached_property
 from typing import List, Tuple, Sequence, Optional,Iterator
 from numpy.typing import NDArray
 import qualtran
+from pyLIQTR.utils.qualtran_compat import MultiControlPauli
 
 def two_complement(val,nb):
     if np.sign(val) >= 0:
@@ -111,7 +112,7 @@ class AddMod(qtAddConstantMod):
             try:
                 yield bloqs.multi_control_multi_target_pauli.MultiControlPauli(self.cvs).on(*(ctlQubits+targetQubit))
             except:
-                yield bloqs.mcmt.MultiControlPauli(self.cvs,target_gate=cirq.X).on(*(ctlQubits+targetQubit))
+                yield MultiControlPauli(self.cvs,target_gate=cirq.X).on(*(ctlQubits+targetQubit))
 
         
         #MSB is first qubit
@@ -228,7 +229,7 @@ class AddMod(qtAddConstantMod):
             try:
                 yield bloqs.multi_control_multi_target_pauli.MultiControlPauli(self.cvs).on(*(ctlQubits+targetQubit))
             except:
-                yield bloqs.mcmt.MultiControlPauli(self.cvs,target_gate=cirq.X).on(*(ctlQubits+targetQubit))
+                yield MultiControlPauli(self.cvs,target_gate=cirq.X).on(*(ctlQubits+targetQubit))
         
 
         context.qubit_manager.qfree(A)

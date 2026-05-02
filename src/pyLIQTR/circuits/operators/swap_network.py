@@ -9,8 +9,8 @@ import cirq
 import numpy as np
 from typing import Tuple, Sequence
 from functools import cached_property
-from qualtran import QBit, QAny, BoundedQUInt, Signature, GateWithRegisters, Register
-from qualtran.bloqs.mcmt.multi_control_multi_target_pauli import MultiControlPauli as mcmtp
+from qualtran import QBit, QAny, BQUInt, Signature, GateWithRegisters, Register
+from pyLIQTR.utils.qualtran_compat import MultiControlPauli as mcmtp
 from qualtran.bloqs.multiplexers.unary_iteration_bloq import UnaryIterationGate
 from pyLIQTR.utils.global_ancilla_manager import GlobalQubitManager as manager
 
@@ -57,7 +57,7 @@ class SwapUnary(UnaryIterationGate):
 
     @cached_property
     def selection_registers(self) -> Tuple[Register,...]:
-        return (Register("selection", dtype=BoundedQUInt(bitsize=math.ceil(np.log2(self.K)), iteration_length=self.K)),)
+        return (Register("selection", dtype=BQUInt(bitsize=math.ceil(np.log2(self.K)), iteration_length=self.K)),)
     
 
     @cached_property

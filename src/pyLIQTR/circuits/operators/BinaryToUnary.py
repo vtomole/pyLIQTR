@@ -15,7 +15,7 @@ from qualtran._infra.gate_with_registers import GateWithRegisters, total_bits
 from qualtran.cirq_interop.t_complexity_protocol import TComplexity
 from qualtran.bloqs.multiplexers.unary_iteration_bloq import UnaryIterationGate
 from qualtran.bloqs.mcmt.and_bloq import And
-from qualtran._infra.data_types import QAny, BoundedQUInt
+from qualtran._infra.data_types import QAny, BQUInt
 from qualtran.bloqs.basic_gates import CNOT, XGate
 
 @attr.frozen
@@ -55,7 +55,7 @@ class BinaryToUnary(UnaryIterationGate):
         controlled = True if quregs.get('control', 0) else False
         return BinaryToUnary(
             selection_regs=Register(
-                'selection', dtype=BoundedQUInt(bitsize=len(quregs['selection']),iteration_length=len(quregs['target']))
+                'selection', dtype=BQUInt(bitsize=len(quregs['selection']),iteration_length=len(quregs['target']))
             ),
             controlled = controlled
         ).on_registers(**quregs)
@@ -140,6 +140,7 @@ class BinaryToUnaryBits(GateWithRegisters):
     """
 
     n_bits: int
+    is_adjoint: bool = False
 
     @classmethod
     def make_on(
@@ -162,6 +163,14 @@ class BinaryToUnaryBits(GateWithRegisters):
 
         open_and_gate = And(cv1=0,cv2=0)
 
+        if self.is_adjoint:
+            for n in range(self.n_bits - 1, 0, -1):
+                yield cirq.X(unary[n])
+                yield open_and_gate.adjoint().on_registers(ctrl=[[binary[n]],[unary[n-1]]], target=unary[n])
+
+            yield cirq.CNOT(binary[0],unary[0])
+            return
+
         # copy the msb from the binary register to the unary register
         yield cirq.CNOT(binary[0],unary[0])
 
@@ -171,9 +180,23 @@ class BinaryToUnaryBits(GateWithRegisters):
             yield cirq.X(unary[n])
 
     def build_call_graph(self, ssa: 'SympySymbolAllocator') -> Set['BloqCountT']:
-        return {(CNOT(), 1),(And(cv1=0,cv2=0),self.n_bits-1),(XGate(),self.n_bits-1)}
+        and_bloq = And(cv1=0,cv2=0,uncompute=self.is_adjoint)
+        return {(CNOT(), 1),(and_bloq,self.n_bits-1),(XGate(),self.n_bits-1)}
 
     def _t_complexity_(self,adjoint=False) -> TComplexity:
+        from qualtran.cirq_interop.t_complexity_protocol import t_complexity
+
         num_ands = self.n_bits-1
-        resources_per_and = And(cv1=0,cv2=0,uncompute=adjoint)._t_complexity_()
+        adjoint = adjoint or self.is_adjoint
+        resources_per_and = t_complexity(And(cv1=0,cv2=0,uncompute=adjoint))
         return TComplexity(t=resources_per_and.t*num_ands,clifford=resources_per_and.clifford*num_ands+self.n_bits)
+
+    def adjoint(self):
+        return BinaryToUnaryBits(n_bits=self.n_bits, is_adjoint=not self.is_adjoint)
+
+    def __pow__(self, power):
+        if power == 1:
+            return self
+        if power == -1:
+            return self.adjoint()
+        return NotImplemented

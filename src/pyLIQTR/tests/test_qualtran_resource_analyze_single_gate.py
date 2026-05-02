@@ -30,7 +30,7 @@ import cirq
 
 from qualtran import _infra
 from qualtran.bloqs.mcmt.and_bloq import And
-from qualtran.cirq_interop.t_complexity_protocol import t_complexity
+from pyLIQTR.utils.resource_analysis import pylqt_t_complexity as t_complexity
 
 from pyLIQTR.circuits.pyLCircuit import pyLCircuit as pylc
 

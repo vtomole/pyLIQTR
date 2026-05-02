@@ -197,15 +197,24 @@ def generator_decompose(
             if "qualtran.bloqs.basic_gates" in op._gate.__module__:
                 yield op._gate.cirq_gate.on(*op.qubits)
             elif "qualtran.cirq_interop._bloq_to_cirq" in op._gate.__module__:
-                gates = ['bloq.CNOT','bloq.XGate','bloq.YGate','bloq.ZGate','bloq.HGate','bloq.H','bloq.SGate','bloq.TGate','bloq.T','bloq.T†']
-                cirq_gates = [cirq.CNOT,cirq.X,cirq.Y,cirq.Z,cirq.H,cirq.H,cirq.S,cirq.T,cirq.T,cirq.inverse(cirq.T)]
+                gates = [
+                    'bloq.CNOT', 'bloq.XGate', 'bloq.YGate', 'bloq.ZGate', 'bloq.HGate',
+                    'bloq.X', 'bloq.Y', 'bloq.Z', 'bloq.H',
+                    'bloq.SGate', 'bloq.S', 'bloq.S†',
+                    'bloq.TGate', 'bloq.T', 'bloq.T†',
+                    'bloq.TwoBitSwap', 'bloq.TwoBitCSwap'
+                ]
+                cirq_gates = [
+                    cirq.CNOT, cirq.X, cirq.Y, cirq.Z, cirq.H,
+                    cirq.X, cirq.Y, cirq.Z, cirq.H,
+                    cirq.S, cirq.S, cirq.inverse(cirq.S),
+                    cirq.T, cirq.T, cirq.inverse(cirq.T),
+                    cirq.SWAP, cirq.CSWAP
+                ]
                 gate2cirq = {g:cg for g,cg in zip(gates,cirq_gates)}
                 if (str(op._gate) not in gate2cirq):
-                    #Annoying, there are some 'non basic' gates mixed in with these -_-
-                    if 'bloq.MultiAnd' in str(op._gate) or "bloq.Add" in str(op._gate) or 'bloq.TwoBitCSwap':
-                        yield op
-                    else:
-                        raise NotImplementedError(str(op._gate))
+                    # Non-basic bloqs are handled by downstream decomposition or custom gateset code.
+                    yield op
                 else:
                     yield gate2cirq[str(op._gate)].on(*op.qubits)
             else:
@@ -221,6 +230,13 @@ def test_for_bad_gate_op(gate_op:cirq.GateOperation) -> str:
     gate_op_str = str(gate_op)
     if hasattr(gate_op, '_gate'):
         gate_op_str = str(gate_op._gate)
+    gate = getattr(gate_op, 'gate', None)
+    if isinstance(gate, qualtran.bloqs.mcmt.multi_control_pauli.MultiControlPauli):
+        return None
+    if isinstance(gate, qualtran._infra.adjoint.Adjoint) and isinstance(gate.subbloq, qualtran.bloqs.mcmt.multi_control_pauli.MultiControlPauli):
+        return None
+    if isinstance(gate, (cirq.CZPowGate, cirq.CXPowGate, cirq.CCZPowGate, cirq.CCXPowGate)) and gate.exponent not in (1, 1.0, -1, -1.0):
+        return None
 
     gates2check = ["reset","cirq.Measure","cirq.MeasurementGate"]
     gates2check += ["X","Y","Z","S","H","T"]

@@ -15,6 +15,7 @@ import  cirq                   as  cirq
 import  qualtran               as  qt
 import  qualtran.cirq_interop.testing  as  qt_test
 from pyLIQTR.utils.resource_analysis import pylqt_t_complexity as t_complexity
+from pyLIQTR.utils.qualtran_compat import MultiControlPauli
 
 from qualtran import Register, QBit, Signature, GateWithRegisters
 
@@ -64,8 +65,8 @@ class QubitizedReflection(qt._infra.gate_with_registers.GateWithRegisters):
             yield cirq.X.on(target[0])
 
 
-        yield qt.bloqs.mcmt.MultiControlPauli( [1] * len(controls), 
-                                               target_gate=self._target_gate).\
+        yield MultiControlPauli( [1] * len(controls), 
+                                 target_gate=self._target_gate).\
                                                 on_registers(controls=[[bit] for bit in controls], target=target)
         
         if not self._control_val:
@@ -78,7 +79,7 @@ class QubitizedReflection(qt._infra.gate_with_registers.GateWithRegisters):
 
 
     def _t_complexity_(self) -> qt.cirq_interop.t_complexity_protocol.TComplexity:
-        multi_cost =  t_complexity( qt.bloqs.mcmt.MultiControlPauli([0] * self._n_controls, 
+        multi_cost =  t_complexity( MultiControlPauli([0] * self._n_controls, 
                                             target_gate=self._target_gate))
     
         if (not self._control_val):
@@ -394,7 +395,6 @@ class QubitizedWalkOperator(qt._infra.gate_with_registers.GateWithRegisters):
         reflect_cost   =  t_complexity( QubitizedReflection( self._n_selection ))
         
         return (reflect_cost + encoding_cost)
-
 
 
 

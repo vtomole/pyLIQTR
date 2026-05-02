@@ -64,8 +64,8 @@ class PrepareTUVSuperpositions(GateWithRegisters):
                 Register("tuv", QBit()),
                 Register("uv", QBit(),side=Side.RIGHT),
                 Register("rot_ancilla", QBit()),
-                Register("flag_prep_success", QBit()),
-                Register("flag_inequality", QBit()),
+                Register("flag_prep_success", QBit(), side=Side.RIGHT),
+                Register("flag_inequality", QBit(), side=Side.RIGHT),
                 Register("superposition_state", QAny(bitsize=self.n_eta_zeta)),
                 Register("phase_gradient_state", QAny(bitsize=self.bphi)),
             ]

@@ -14,8 +14,6 @@ from openfermion import  FermionOperator
 
 from    functools   import   cache, cached_property
 
-import juliapkg
-
 class ChemicalHamiltonian(ProblemInstance):
     
     """
@@ -31,10 +29,6 @@ class ChemicalHamiltonian(ProblemInstance):
     """
 
     def __init__(self, mol_ham: InteractionOperator, mol_name=None, **kwargs):
-        # We need to setup Julia if this hasn't happened yet, hopefully this only runs once!
-        juliapkg.require_julia("~1.8,~1.9")
-        juliapkg.resolve()
-        
         # Now start the real initialization
         self._mol_ham    =  mol_ham
         self._mol_name   =  mol_name
@@ -131,12 +125,6 @@ class ChemicalHamiltonian(ProblemInstance):
             return(self._ops.get_coeff_norm())
         elif encoding == 'DF':
             from pyLIQTR.utils.df_utils import to_OBF
-            if 'sphinx' not in sys.modules:
-                from juliacall import Main as jl
-                jl.seval('import Pkg')
-                jl.seval('Pkg.add("QuantumMAMBO")')
-                jl.seval("using QuantumMAMBO")
-                mambo = jl.QuantumMAMBO
 
             if df_cutoffs is None:
                 if df_error_threshold is None:
@@ -151,7 +139,7 @@ class ChemicalHamiltonian(ProblemInstance):
             DF_frags = self.DF_fragments(sf_error_threshold)
             one_body_correction = 2*sum([two_body_tensor[:,:,r,r] for r in range(two_body_tensor.shape[0])])
             one_body_fragment = to_OBF(one_body_tensor + one_body_correction)
-            lambdaTprime = mambo.OBF_L1(one_body_fragment)
+            lambdaTprime = sum(np.abs(one_body_fragment.C.λ))
             lambdaDF = 0.0
             for l,frag in enumerate(DF_frags):
                 lambdaDF += 0.5 * abs(frag.coeff) * ((sum(np.abs(frag.C.λ[:df_cutoffs[l]])))**2)

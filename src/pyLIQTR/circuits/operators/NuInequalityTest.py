@@ -46,23 +46,26 @@ class NuInequalityTest(GateWithRegisters):
     """
     num_bits_p: int
     num_bits_m: int
+    is_adjoint: bool = False
 
     @cached_property
     def ancilla_registers(self) -> Tuple[Register]:
-        return (Register("sos_product_ancilla", QAny(bitsize=int(3*self.num_bits_p*(self.num_bits_p-1)/2)),side=Side.RIGHT),
-        Register("sos_carry_ancilla",QAny(bitsize=int(self.num_bits_p*(3*self.num_bits_p+1)/2-3)),side=Side.RIGHT),
-        Register("nu_mag_squared", QAny(bitsize=2*self.num_bits_p+2),side=Side.RIGHT),
-        Register("m_times_nu", QAny(self.num_bits_m+2*self.num_bits_p+2), side=Side.RIGHT),
+        side = Side.LEFT if self.is_adjoint else Side.RIGHT
+        return (Register("sos_product_ancilla", QAny(bitsize=int(3*self.num_bits_p*(self.num_bits_p-1)/2)),side=side),
+        Register("sos_carry_ancilla",QAny(bitsize=int(self.num_bits_p*(3*self.num_bits_p+1)/2-3)),side=side),
+        Register("nu_mag_squared", QAny(bitsize=2*self.num_bits_p+2),side=side),
+        Register("m_times_nu", QAny(self.num_bits_m+2*self.num_bits_p+2), side=side),
         )
 
     @cached_property
     def signature(self) -> Signature:
+        side = Side.LEFT if self.is_adjoint else Side.RIGHT
         return Signature(
             [
                 Register("mu", QAny(self.num_bits_p)),
                 Register("nu", QAny(self.num_bits_p + 1), shape=(3,)),
                 Register("m", QAny(self.num_bits_m)),
-                Register("flag_ineq", QBit(), side=Side.RIGHT),
+                Register("flag_ineq", QBit(), side=side),
                 *self.ancilla_registers
             ]
         )
@@ -71,6 +74,18 @@ class NuInequalityTest(GateWithRegisters):
         return r'(2^(μ-2))^2 M > m ν^2'
 
     def decompose_from_registers(
+        self,
+        *,
+        context: cirq.DecompositionContext,
+        **quregs: NDArray[cirq.Qid],
+    ) -> cirq.OP_TREE:
+        ops = list(self._decompose_forward_from_registers(context=context, **quregs))
+        if self.is_adjoint:
+            yield from (cirq.inverse(op) for op in reversed(ops))
+        else:
+            yield from ops
+
+    def _decompose_forward_from_registers(
         self,
         *,
         context: cirq.DecompositionContext,
@@ -110,6 +125,16 @@ class NuInequalityTest(GateWithRegisters):
         yield LinearDepthGreaterThan(bitsize=self.num_bits_m + 2 * self.num_bits_p + 2,signed=False).on_registers(a=two_mu_M,b=product_out,target=flag_ineq)
 
         context.qubit_manager.qfree(zeros_ancilla)
+
+    def adjoint(self):
+        return evolve(self, is_adjoint=not self.is_adjoint)
+
+    def __pow__(self, power):
+        if power == 1:
+            return self
+        if power == -1:
+            return self.adjoint()
+        return NotImplemented
 
     def build_call_graph(self, ssa: 'SympySymbolAllocator') -> Set['BloqCountT']:
         # 1. Compute $\nu_x^2 + \nu_y^2 + \nu_z^2$

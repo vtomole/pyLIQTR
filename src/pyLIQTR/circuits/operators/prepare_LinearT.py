@@ -10,10 +10,10 @@ import qualtran as qt
 from functools import cached_property
 from typing import List, Tuple, Sequence
 from numpy.typing import NDArray
-from qualtran import GateWithRegisters, Register, Signature, BoundedQUInt, QBit, QAny, QInt
-from qualtran.linalg.lcu_util import preprocess_lcu_coefficients_for_reversible_sampling
+from qualtran import GateWithRegisters, Register, Signature, BQUInt, QBit, QAny, QInt
+from qualtran.linalg.lcu_util import preprocess_probabilities_for_reversible_sampling
 from qualtran.bloqs.data_loading.qrom import QROM
-from qualtran.bloqs.mcmt import MultiControlPauli
+from pyLIQTR.utils.qualtran_compat import MultiControlPauli
 from qualtran.bloqs.state_preparation import PrepareUniformSuperposition
 
 from pyLIQTR.circuits.operators.AddMod import Add
@@ -35,7 +35,7 @@ class FermionicPrepare_LinearT(GateWithRegisters):
     :param List[Tuple[int,float]] U_array: The (Z) operator coefficients, equivalent to :math:`\\tilde{U}^2` in the reference. Formatted the same as T_array.
     :param List[Tuple[int,float]] V_array: The (ZZ) operator coefficients, equivalent to :math:`\\tilde{V}^2` in the reference. Formatted the same as T_array.
     :param NDArray[int] M_vals: Number of grid points (orbitals) along each spatial dimension.
-    :param float approx_error: The desired accuracy to represent each coefficient which sets :math:`\\mu` size and keep/alt integers. See `qualtran.linalg.lcu_util.preprocess_lcu_coefficients_for_reversible_sampling` for more information.
+    :param float approx_error: The desired accuracy to represent each coefficient which sets :math:`\\mu` size and keep/alt integers. See `qualtran.linalg.lcu_util.preprocess_probabilities_for_reversible_sampling` for more information.
     '''
 
     def __init__(self, T_array: List[Tuple[int,float]], U_array: List[Tuple[int,float]], V_array: List[Tuple[int,float]], M_vals: NDArray[np.int_], approx_error: float):
@@ -65,12 +65,12 @@ class FermionicPrepare_LinearT(GateWithRegisters):
     @cached_property
     def selection_registers(self) -> Tuple[Register]:
         theta_reg = Register(name="theta",dtype=QBit())
-        U_reg = Register(name="U",dtype=BoundedQUInt(1,2))
-        V_reg = Register(name="V",dtype=BoundedQUInt(1,2))
-        p_reg = Register(name='p',dtype=BoundedQUInt(bitsize=self.__Np_bits,iteration_length=int(self.__N/2)))
-        a_reg = Register(name="a",dtype=BoundedQUInt(1,2))
-        q_reg = Register(name='q',dtype=BoundedQUInt(bitsize=self.__Np_bits,iteration_length=int(self.__N/2)))
-        b_reg = Register(name="b",dtype=BoundedQUInt(1,2))
+        U_reg = Register(name="U",dtype=BQUInt(1,2))
+        V_reg = Register(name="V",dtype=BQUInt(1,2))
+        p_reg = Register(name='p',dtype=BQUInt(bitsize=self.__Np_bits,iteration_length=int(self.__N/2)))
+        a_reg = Register(name="a",dtype=BQUInt(1,2))
+        q_reg = Register(name='q',dtype=BQUInt(bitsize=self.__Np_bits,iteration_length=int(self.__N/2)))
+        b_reg = Register(name="b",dtype=BQUInt(1,2))
         return (theta_reg,U_reg,V_reg,p_reg,a_reg,q_reg,b_reg)
 
     @cached_property
@@ -190,7 +190,7 @@ class Subprepare_LinearT(GateWithRegisters):
             M_vals: Number of grid points (spin orbitals) along each spatial dimension.
             approx_error: The desired accuracy to represent each coefficient
                 (which sets mu size and keep/alt integers).
-                See `qualtran.linalg.lcu_util.preprocess_lcu_coefficients_for_reversible_sampling`
+                See `qualtran.linalg.lcu_util.preprocess_probabilities_for_reversible_sampling`
                 for more information.
         """
 
@@ -198,8 +198,8 @@ class Subprepare_LinearT(GateWithRegisters):
         coefficients = [coeff[1] for coeff in T_array + V_array + U_array]
         theta = np.array([coeff[0] for coeff in T_array + V_array + U_array]) # entries should be 0 or 1
 
-        alt, keep, mu = preprocess_lcu_coefficients_for_reversible_sampling(
-            lcu_coefficients=coefficients, epsilon=approx_error
+        alt, keep, mu =  preprocess_probabilities_for_reversible_sampling(
+            unnormalized_probabilities=coefficients, epsilon=approx_error
         )
         theta_alt = np.array([theta[i] for i in alt])
 
@@ -245,8 +245,8 @@ class Subprepare_LinearT(GateWithRegisters):
 
     @cached_property
     def selection_registers(self) -> Tuple[Register]:
-        U_reg = Register(name="U",dtype=BoundedQUInt(1,2))
-        V_reg = Register(name="V",dtype=BoundedQUInt(1,2))
+        U_reg = Register(name="U",dtype=BQUInt(1,2))
+        V_reg = Register(name="V",dtype=BQUInt(1,2))
         d_reg = Register("d",dtype=QAny(int(sum(self.logM_vals))))
         return (
             U_reg,

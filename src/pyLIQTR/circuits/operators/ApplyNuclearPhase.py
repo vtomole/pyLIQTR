@@ -11,7 +11,7 @@ from attrs import frozen
 
 from qualtran import GateWithRegisters, QAny, Register, Signature, QBit
 from qualtran.bloqs.basic_gates import Toffoli, CNOT, CZPowGate
-from qualtran.bloqs.mcmt import MultiTargetCNOT
+from qualtran.bloqs.mcmt.multi_target_cnot import MultiTargetCNOT
 from qualtran.drawing import Text, WireSymbol
 
 from pyLIQTR.circuits.operators.ControlledCopy import ControlledCopy
@@ -73,7 +73,7 @@ class ApplyNuclearPhase(GateWithRegisters):
         ancilla = context.qubit_manager.qalloc(self.num_bits_nuc)
 
         # overall factor of minus 1 controlled on selecting U
-        yield CZPowGate(exponent=1.0,global_shift=0.0).on(*flag_uv,*flag_tuv)
+        yield CZPowGate(exponent=1.0).on(*flag_uv,*flag_tuv)
 
         # loop over each dimension
         for dim in range(3):

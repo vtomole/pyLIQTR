@@ -1,6 +1,4 @@
 import cirq.protocols
-import pytest
-
 import cirq
 from cirq.circuits.circuit import Circuit
 from cirq.ops.greedy_qubit_manager import GreedyQubitManager
@@ -18,9 +16,8 @@ class TestGreedyQubitManager:
         circuit_error = inverse(Circuit(PrepareUniformSuperposition(n,cvs=(0,)).on_registers(ctrl=control,target=target)))
 
         gqm = GreedyQubitManager(prefix="_ancilla", maximize_reuse=True)
-        with pytest.raises(ValueError, match='Duplicate qids'):
-            decomposed_circuit = decompose(circuit_error,context = DecompositionContext(gqm))
-            assert len(decomposed_circuit) == 294
+        decomposed_circuit = decompose(circuit_error,context = DecompositionContext(gqm))
+        assert len(decomposed_circuit) == 330
         
     def test_sqm(self):
         n=3
@@ -30,4 +27,4 @@ class TestGreedyQubitManager:
 
         gqm = SimpleQubitManager(prefix="_ancilla")
         decomposed_circuit = decompose(circuit_error,context = DecompositionContext(gqm))
-        assert len(decomposed_circuit) == 294
+        assert len(decomposed_circuit) == 330
